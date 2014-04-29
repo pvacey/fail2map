@@ -1,30 +1,32 @@
 #!venv/bin/python
 
 import time, re
+directory = '/home/paul/projects/geossh/'
 
 def getNewIPs():
-	ftell = open ('/home/paul/projects/geossh/tell.txt')
+	ftell = open (directory+'tell.txt')
 	ftell.seek(0.0)
 	offset = int(ftell.read()) 
 	print "tell.txt --> "+ str(offset)
 
-	flog = open ('/home/paul/projects/geossh/auth.log')
+	flog = open (directory+'auth.log') #make a symlink to directory
 	#open the log at the offset
 	flog.seek(offset,0)
 	tmp = flog.read()
 
 	#save the new end of the log
-	print "end of log -->"+  str(flog.tell())
+	print "end of log --> "+  str(flog.tell())
 	#re-open to overwrite file
 	ftell.close()
-	ftell = open ('/home/paul/projects/geossh/tell.txt','w')
+	ftell = open (directory+'tell.txt','w')
 	ftell.write(str(flog.tell()))
 
 
+	#DO NOT NEED ANYMORE I THINK
 
-	fip = open ('/home/paul/projects/geossh/ip.txt')
-	fip.seek(0.0)
-	oldIP = fip.read()
+	#fip = open (directory+'ip.txt')
+	#fip.seek(0.0)
+	#oldIP = fip.read()
 
 	tmp = re.findall("Invalid .+ from (.+)", tmp)
 
@@ -44,7 +46,7 @@ def getNewIPs():
 
 	print ipList
 	#write only the new ip address to the file
-	outpoot =  open('/home/paul/projects/geossh/ip.txt' , 'w')
+	outpoot =  open(directory+'ip.txt' , 'w')
 	for ip in ipList:
 		outpoot.write(ip+"\n")
 	outpoot.close()
