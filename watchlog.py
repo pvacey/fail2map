@@ -8,7 +8,8 @@
 #				     it does to find the IPs in the first place
 #				     --> this should work if getNewIP first then geolocate second
 
-import time, re
+import time, re, simplekml
+import requests, json
 directory = '/home/paul/projects/geossh/'
 
 def getNewIPs():
@@ -31,16 +32,12 @@ def getNewIPs():
 	
 	print "starting log from --> " + str(offset)
 	
-	
 	flog.seek(offset,0)
 	tmp = flog.read()
 	newOffset = str(flog.tell())
 	flog.close()
 
 	print "end of log --> "+  newOffset
-
-
-
 
 	#this also checks to see where the end of ip.txt file is, and starts fresh if past end	
 	ipOffset = ftell.readline() 
@@ -79,15 +76,11 @@ def getNewIPs():
 			ipList.append(ip)	
 			previous = ip
 
-
-	#
-	#Need to fix this so that it does not add duplicates
-	#
+	#checks for duplicates
 	oldIP = oldIP.split()
 	print oldIP
 	newIpList = list(set(ipList) - set(oldIP))  
 	#newIpList = ipList 
-
 
 	print newIpList
 
@@ -99,16 +92,40 @@ def getNewIPs():
 	outpoot =  open(directory+'ip.txt' , 'a')
 	for ip in newIpList:
 		outpoot.write(ip+"\n")
+		geolocateIP(ip)
 	outpoot.close()
 	return
 
-def geolocateIPs():
+def geolocateIP(ip):
+	r = requests.get('https://freegeoip.net/json/'+ip)
+	json_data = r.json()
+#	data = json.load(json_data)
+#	print data["latitude"]
+	lon = json_data["longitude"]
+	lat = json_data["latitude"]
+	
+	print ip + "    " + str(lat) + "  " + str(lon)	
+	
+	#write to database 
+	
 	return
-
 
 def updateKML():
+	f = open (directory+"/ip.txt")
+	ipList = f.read()
+	ipList = ipList.split()
+
+	kml = simplekml.Kml()
+	for ip in ipList:
+		kml.newpoint(name=ip, coords=[(33.343434,-33.909090)])	
+		kml.save(directory+"/test.kml")
+
+	print kml.kml()
 	return
 
+
 getNewIPs()	
-#geolocateIPs()
-#updateKML()
+#geolocateIP()
+
+# IF NEW IP ADDED THEN UPDATE (ADD A GLOBAL BOOLEAN )
+updateKML()
