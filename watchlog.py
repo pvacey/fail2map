@@ -8,7 +8,7 @@
 #				     it does to find the IPs in the first place
 #				     --> this should work if getNewIP first then geolocate second
 
-import time, re, simplekml
+import time, re
 import requests, json, sqlite3 as lite
 from jinja2 import Environment, PackageLoader
 directory = '/home/paul/projects/geossh/'
