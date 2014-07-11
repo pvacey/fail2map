@@ -9,10 +9,14 @@
 #				     --> this should work if getNewIP first then geolocate second
 
 import time, re, simplekml
-import requests, json
+import requests, json, sqlite3 as lite
+from jinja2 import Environment, PackageLoader
 directory = '/home/paul/projects/geossh/'
 
 def getNewIPs():
+
+	update = False
+
 	#open file that holds offset (tell) value
 	ftell = open (directory+'offset.txt')
 	ftell.seek(0.0)
@@ -39,30 +43,17 @@ def getNewIPs():
 
 	print "end of log --> "+  newOffset
 
-	#this also checks to see where the end of ip.txt file is, and starts fresh if past end	
-	ipOffset = ftell.readline() 
-	print ipOffset
-	fip = open (directory+'ip.txt')
-	fip.seek(0,2)
-	ipLogLength = fip.tell()
-	if ipOffset > ipLogLength:
-		fip.close()
-		reOpen = True
-		#fip = open(directory+'ip.txt','w')
-		ipOffset = 0
-	if reOpen:
-		fip = open(directory+'ip.txt','r+')
-
-	print "start ip.txt -->" + str(ipOffset)
-	fip.seek(int(ipOffset),0)
-	oldIP = fip.read()
-	ipOffset = str(fip.tell()) 	
-
-	#overwrite the offset value
-	ftell = open (directory+'offset.txt','w')
-	ftell.write(newOffset+"\n")
-	ftell.write(ipOffset)
-	ftell.close()
+	#connect to IP database
+	db = connect_db('data.db')
+	cur = db[0]
+	con = db[1]
+	
+	#get the list of IPs from the database
+	cur.execute('SELECT ip FROM coordinates;')
+	oldIP = []
+	tmp_oldIP = cur.fetchall()
+	for ip in tmp_oldIP:
+		oldIP.append(ip[0].encode("utf-8"))	
 
 	#grab the IPs from the log
 	tmp = re.findall("Invalid .+ from (.+)", tmp)
@@ -76,56 +67,86 @@ def getNewIPs():
 			ipList.append(ip)	
 			previous = ip
 
-	#checks for duplicates
-	oldIP = oldIP.split()
-	print oldIP
 	newIpList = list(set(ipList) - set(oldIP))  
-	#newIpList = ipList 
 
-	print newIpList
-
-	#!!!!!
-	#Can probably just keep this as a list...?
-	#!!!!!!
+	print "old IPs --> " + str(oldIP)
+	print "new IPs --> " + str(newIpList)
 
 	#write only the new ip address to the file
-	outpoot =  open(directory+'ip.txt' , 'a')
 	for ip in newIpList:
-		outpoot.write(ip+"\n")
-		geolocateIP(ip)
-	outpoot.close()
-	return
+		update = True
+		#look up the ip
+		coords = geolocateIP(ip)
+		#add to database
+		entry = [ip, coords[0], coords[1] ]
+		cur.execute('insert into coordinates values(?,?,?)', entry)
+
+	#save db changes
+	con.commit()
+	con.close()
+	
+	#update the KML if any new IPs were added
+#	if update:
+#		updateKML()
+	return 
 
 def geolocateIP(ip):
 	r = requests.get('https://freegeoip.net/json/'+ip)
 	json_data = r.json()
-#	data = json.load(json_data)
-#	print data["latitude"]
-	lon = json_data["longitude"]
 	lat = json_data["latitude"]
+	lon = json_data["longitude"]
 	
 	print ip + "    " + str(lat) + "  " + str(lon)	
 	
-	#write to database 
-	
-	return
+	return lat, lon
 
 def updateKML():
-	f = open (directory+"/ip.txt")
-	ipList = f.read()
-	ipList = ipList.split()
+	#connect to IP database
+	db = connect_db('data.db')
+	cur = db[0]
+	con = db[1]
+	
+	#get the list of IPs from the database
+	cur.execute('SELECT * FROM coordinates;')
+	ipList = cur.fetchall()
 
 	kml = simplekml.Kml()
 	for ip in ipList:
-		kml.newpoint(name=ip, coords=[(33.343434,-33.909090)])	
-		kml.save(directory+"/test.kml")
+		kml.newpoint(name=ip[0].encode('utf-8'),description = "worthless piece of shit", coords=[(str(ip[1])+"000",str(ip[2])+"000", "0")] )	
 
+	kml.save(directory+"/test.kml")
 	print kml.kml()
 	return
 
+def updateMap():
+	#connect to IP database
+	db = connect_db('data.db')
+	cur = db[0]
+	con = db[1]
+	
+	#get the list of IPs from the database
+	cur.execute('SELECT * FROM coordinates;')
+	points = cur.fetchall()
 
-getNewIPs()	
-#geolocateIP()
+	env = Environment(loader=PackageLoader('watchlog', 'templates'))
+	template = env.get_template('map.jinja')
 
-# IF NEW IP ADDED THEN UPDATE (ADD A GLOBAL BOOLEAN )
-updateKML()
+	html = open("test.html",'w')
+	html.write(template.render(points=points))
+
+	return
+
+def connect_db(db):
+	con = None
+	try:
+		con = lite.connect(db)
+		cur = con.cursor()
+		return cur, con
+	except lite.Error, e:
+		print "Error %s:" %e.args[0]
+		return
+
+
+#getNewIPs()
+updateMap()
+#updateKML()
