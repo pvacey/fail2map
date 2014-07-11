@@ -100,24 +100,6 @@ def geolocateIP(ip):
 	
 	return lat, lon
 
-def updateKML():
-	#connect to IP database
-	db = connect_db('data.db')
-	cur = db[0]
-	con = db[1]
-	
-	#get the list of IPs from the database
-	cur.execute('SELECT * FROM coordinates;')
-	ipList = cur.fetchall()
-
-	kml = simplekml.Kml()
-	for ip in ipList:
-		kml.newpoint(name=ip[0].encode('utf-8'),description = "worthless piece of shit", coords=[(str(ip[1])+"000",str(ip[2])+"000", "0")] )	
-
-	kml.save(directory+"/test.kml")
-	print kml.kml()
-	return
-
 def updateMap():
 	#connect to IP database
 	db = connect_db('data.db')
@@ -131,7 +113,7 @@ def updateMap():
 	env = Environment(loader=PackageLoader('watchlog', 'templates'))
 	template = env.get_template('map.jinja')
 
-	html = open("test.html",'w')
+	html = open("map.html",'w')
 	html.write(template.render(points=points))
 
 	return
@@ -147,6 +129,6 @@ def connect_db(db):
 		return
 
 
-#getNewIPs()
+getNewIPs()
 updateMap()
 #updateKML()
